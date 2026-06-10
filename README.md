@@ -4,11 +4,7 @@
 
 AWSomeShop 是一个面向企业内部员工的福利积分电商平台 MVP。员工通过积分兑换商品，管理员负责商品管理、积分发放和订单处理。
 
-- **项目类型**：Greenfield（全新项目）
-- **启动时间**：2026-02-08
-- **当前阶段**：CONSTRUCTION — 全部 7 个工作单元的设计阶段已完成，待进入代码生成
-
-## 系统架构
+## 参考系统架构
 
 ```
 Frontend (Port 3000)
@@ -35,13 +31,13 @@ Auth  Product Points Order  (微服务)
 
 | 单元 | 名称 | 端口 | 说明 |
 |------|------|------|------|
-| Unit 1 | awsomeshop-frontend | 3000 | SPA 前端应用（员工端 + 管理端） |
-| Unit 2 | auth-service | 8001 | 认证服务（注册/登录/JWT/角色管理） |
-| Unit 3 | product-service | 8002 | 商品服务（商品 CRUD/分类管理/文件上传） |
-| Unit 4 | points-service | 8003 | 积分服务（余额管理/自动发放/手动调整） |
-| Unit 5 | order-service | 8004 | 兑换服务（下单/状态管理/跨服务调用） |
-| Unit 6 | api-gateway | 8080 | API 网关（认证校验/路由转发/权限控制） |
-| Unit 7 | infrastructure | 3306 | 基础设施（Docker Compose/MySQL/网络） |
+| Unit 1 | 目前无 | 3000 | SPA 前端应用（员工端 + 管理端） |
+| Unit 2 | 目前无 | 8001 | 认证服务（注册/登录/JWT/角色管理） |
+| Unit 3 | 目前无 | 8002 | 商品服务（商品 CRUD/分类管理/文件上传） |
+| Unit 4 | 目前无 | 8003 | 积分服务（余额管理/自动发放/手动调整） |
+| Unit 5 | 目前无 | 8004 | 兑换服务（下单/状态管理/跨服务调用） |
+| Unit 6 | 目前无 | 8080 | API 网关（认证校验/路由转发/权限控制） |
+| Unit 7 | 目前无 | 3306 | 基础设施（Docker Compose/MySQL/网络） |
 
 **开发顺序**：Unit 7 → Unit 2 → Unit 6 → Unit 3 + Unit 4（可并行） → Unit 5 → Unit 1
 
@@ -142,17 +138,4 @@ awsome-shop-plan/
 | awsome-shop-api-gateway | API 网关 |
 | awsome-shop-deploy | 部署编排（Docker Compose） |
 
-## 项目进度
 
-- [x] 工作区检测
-- [x] 需求分析
-- [x] 用户故事（25 个故事，3 个画像）
-- [x] 工作流规划
-- [x] 应用设计（组件/服务/依赖/工作单元）
-- [x] 功能设计（7 个单元全部完成）
-- [x] NFR 需求评估（7 个单元全部完成）
-- [x] NFR 设计（7 个单元全部完成）
-- [x] 基础设施设计（7 个单元全部完成）
-- [x] UI 设计稿（28 个页面/弹窗全部完成）
-- [ ] 代码生成（待执行）
-- [ ] 构建和测试（待执行）

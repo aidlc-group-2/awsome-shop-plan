@@ -1,179 +1,129 @@
-# AWSomeShop 组件依赖关系
+# 组件依赖与通信（Component Dependency & Communication）
+
+> 阶段：INCEPTION - 应用设计
+> 时间：2026-06-10T15:54:10+08:00
 
 ---
 
-## 依赖关系矩阵
+## 1. 服务依赖矩阵（调用方 → 被调方）
 
-### 后端组件依赖
+| 调用方 \ 被调方 | Auth | Product | Points | Order | Gateway |
+|------------------|:----:|:-------:|:------:|:-----:|:-------:|
+| **Frontend**     |  经网关  |  经网关  |  经网关  |  经网关  |  ✓  |
+| **Gateway**      |  ✓(校验/路由) | ✓(路由) | ✓(路由) | ✓(路由) | -  |
+| **Auth**         |  -   |    -    |  ✓(发积分) |   -   |   -   |
+| **Product**      |  -   |    -    |   -    |   -   |   -   |
+| **Points**       |  -   |    -    |   -    |   -   |   -   |
+| **Order**        |  -   |  ✓(库存)  | ✓(扣减/退回) | - |   -   |
 
-| 组件 | 依赖 | 依赖类型 |
-|------|------|---------|
-| BE-AUTH | DA-USER, DA-POINTS | 数据访问 |
-| BE-USER | DA-USER | 数据访问 |
-| BE-PRODUCT | DA-PRODUCT, DA-CATEGORY, BE-FILE | 数据访问 + 组件调用 |
-| BE-CATEGORY | DA-CATEGORY, DA-PRODUCT | 数据访问（删除时检查关联） |
-| BE-POINTS | DA-POINTS, DA-USER | 数据访问 |
-| BE-ORDER | BE-PRODUCT, BE-POINTS, DA-ORDER | 组件调用 + 数据访问 |
-| BE-FILE | 本地文件系统 | 外部资源 |
-| BE-SCHEDULER | DA-CONFIG, DA-USER, DA-POINTS | 数据访问 |
-
-### API 网关依赖
-
-| 组件 | 依赖 | 依赖类型 |
-|------|------|---------|
-| API-GATEWAY | JWT 签名密钥（与 auth-service 共享） | 配置共享 |
-| API-GATEWAY | auth-service, product-service, points-service, order-service | 请求转发目标 |
-
-### 前端组件依赖
-
-| 组件 | 依赖 | 依赖类型 |
-|------|------|---------|
-| FE-AUTH | FE-COMMON(HTTP客户端) | 公共服务 |
-| FE-PRODUCT | FE-COMMON, FE-AUTH(认证状态) | 公共服务 + 认证 |
-| FE-POINTS | FE-COMMON, FE-AUTH | 公共服务 + 认证 |
-| FE-ORDER | FE-COMMON, FE-AUTH, FE-POINTS(余额显示) | 公共服务 + 认证 + 数据 |
-| FE-ADMIN | FE-COMMON, FE-AUTH(角色校验) | 公共服务 + 认证 |
+**说明**：依赖方向单向、无环。Order 依赖 Product 与 Points；Auth 依赖 Points（仅注册发放）。Product、Points 不主动依赖其他业务服务（被调用方），利于并行开发与独立演进。
 
 ---
 
-## 组件依赖图
+## 2. 通信模式
 
-```
-+----------+     +----------+     +-----------+
-| FE-AUTH  |     | FE-PROD  |     | FE-POINTS |
-+----+-----+     +----+-----+     +-----+-----+
-     |                |                  |
-     +-------+--------+--------+---------+
-             |                 |
-        +----v-----+     +----v----+
-        | FE-ORDER |     | FE-ADMIN|
-        +----+-----+     +----+----+
-             |                 |
-     ========|=================|======== HTTP 请求
-             |                 |
-        +----v-----------------v----+
-        |      API GATEWAY          |
-        |  (JWT校验/权限/路由)       |
-        +----+-----+-----+----+----+
-             |     |     |    |
-     ========|=====|=====|====|======== 内部网络
-             |     |     |    |
-     +-------v-+ +-v---+ +v--v------+
-     | BE-AUTH | |BE-  | | BE-      |
-     | BE-USER | |PROD | | POINTS   |
-     +---------+ |BE-  | | BE-SCHED |
-                 |CATEG| +-+--------+
-                 |BE-  |   |
-                 |FILE |   |
-                 +--+--+   |
-                    |      |
-               +----v------v----+
-               |   BE-ORDER     |
-               +-------+--------+
-                       |
-                +------v-------+
-                |    MySQL     |
-                +--------------+
-```
+| 链路 | 协议 | 同步/异步 | 备注 |
+|------|------|-----------|------|
+| Frontend → Gateway | HTTPS/REST | 同步 | 统一入口，附加 JWT |
+| Gateway → 各服务 | HTTP/REST | 同步 | 注入用户身份头 |
+| Auth → Points | HTTP/REST（内部） | 同步 | 注册发放入职奖励，失败重试/补偿 |
+| Order → Points | HTTP/REST（内部） | 同步 | 扣减/退回，幂等(orderRef) |
+| Order → Product | HTTP/REST（内部） | 同步 | 预占/释放/扣减，幂等(reservationId) |
+| 各服务 → MySQL | JDBC | 同步 | 独立 schema |
+
+- **全部同步 REST**（决策 Q1=A）。跨服务一致性由**编排式 Saga + 补偿 + 幂等**保证。
+- 内部接口（`/internal/**`）仅内网可达，受 `InternalAuthFilter` 保护。
 
 ---
 
-## 数据流
+## 3. 部署/依赖关系图
 
-### 员工兑换产品数据流（经 API 网关）
+### Mermaid
 
-```
-员工浏览器
-  |
-  | 1. POST /api/orders {productId} + JWT令牌
-  v
-API GATEWAY
-  | 1a. 校验 JWT 令牌有效性
-  | 1b. 提取用户信息（userId, role）
-  | 1c. 转发请求到 order-service（附带用户信息）
-  v
-BE-ORDER (兑换组件)
-  |
-  | 2. 查询产品信息和库存
-  +-------> BE-PRODUCT --> DA-PRODUCT --> MySQL(products)
-  |
-  | 3. 查询用户积分余额
-  +-------> BE-POINTS --> DA-POINTS --> MySQL(point_balances)
-  |
-  | 4. 事务开始
-  | 4a. 扣除积分
-  +-------> DA-POINTS --> MySQL(point_balances, point_transactions)
-  | 4b. 减少库存
-  +-------> DA-PRODUCT --> MySQL(products)
-  | 4c. 创建兑换记录
-  +-------> DA-ORDER --> MySQL(orders)
-  | 4d. 事务提交
-  |
-  | 5. 返回兑换结果
-  v
-API GATEWAY → 员工浏览器
-```
+```mermaid
+flowchart TD
+    FE["Frontend SPA :3000"]
+    NG["API Gateway :8080"]
+    AU["Auth Service :8001"]
+    PR["Product Service :8002"]
+    PO["Points Service :8003"]
+    OR["Order Service :8004"]
+    DB[("MySQL :3306 - 4 schema")]
 
-### 管理员操作数据流（经 API 网关权限校验）
+    FE --> NG
+    NG --> AU
+    NG --> PR
+    NG --> PO
+    NG --> OR
+    AU --> PO
+    OR --> PR
+    OR --> PO
+    AU --> DB
+    PR --> DB
+    PO --> DB
+    OR --> DB
 
-```
-管理员浏览器
-  |
-  | 1. POST /api/admin/* + JWT令牌
-  v
-API GATEWAY
-  | 1a. 校验 JWT 令牌有效性
-  | 1b. 提取用户角色
-  | 1c. 校验角色 == ADMIN
-  | 1d. 转发请求到对应微服务
-  v
-对应微服务（product-service / points-service / order-service / auth-service）
+    style FE fill:#BBDEFB,stroke:#1565C0,color:#000
+    style NG fill:#C8E6C9,stroke:#2E7D32,color:#000
+    style AU fill:#FFE0B2,stroke:#E65100,color:#000
+    style PR fill:#FFE0B2,stroke:#E65100,color:#000
+    style PO fill:#FFE0B2,stroke:#E65100,color:#000
+    style OR fill:#FFE0B2,stroke:#E65100,color:#000
+    style DB fill:#D1C4E9,stroke:#4527A0,color:#000
+    linkStyle default stroke:#333,stroke-width:2px
 ```
 
-### 积分自动发放数据流
+### 文本替代
 
 ```
-Cron 定时触发
-  |
-  v
-BE-SCHEDULER (调度组件)
-  |
-  | 1. 读取发放配置
-  +-------> DA-CONFIG --> MySQL(system_configs)
-  |
-  | 2. 查询所有活跃员工
-  +-------> DA-USER --> MySQL(users)
-  |
-  | 3. 批量发放（循环每位员工）
-  +-------> DA-POINTS --> MySQL(point_balances, point_transactions)
-  |
-  v
-完成，记录日志
+Frontend(3000)
+   |  (经网关)
+   v
+API Gateway(8080)  --路由+鉴权-->  Auth(8001), Product(8002), Points(8003), Order(8004)
+
+服务间(内部 REST):
+   Auth(8001)  --发积分-->  Points(8003)
+   Order(8004) --库存预占/释放/扣减-->  Product(8002)
+   Order(8004) --扣减/退回积分-->  Points(8003)
+
+数据层: Auth/Product/Points/Order  --JDBC-->  MySQL(3306) 各自独立 schema
 ```
 
 ---
 
-## 通信模式
+## 4. 关键数据流
 
-| 通信类型 | 描述 | 使用场景 |
-|---------|------|---------|
-| 前端 → API 网关 | HTTP/JSON | 所有前端请求统一入口 |
-| API 网关 → 微服务 | HTTP/JSON（内部网络） | 请求转发 |
-| 微服务 → 微服务 | HTTP/JSON（内部网络） | 跨服务调用（如 order → product/points） |
-| 组件 → 数据库 | 数据访问层 | 所有数据持久化 |
-| 调度器 → 组件 | 定时触发 | 积分自动发放 |
+### 4.1 兑换数据流（编排式 Saga）
+```
+用户 → 网关 → Order.createRedemption
+  Order → Points: deduct(userId, amount, orderRef)        -> 扣减成功
+  Order → Product: reserveStock(productId, qty, orderRef) -> 预占成功(reservationId)
+  Order: 写入 Order(SUCCESS) + (实物)ShippingInfo / (虚拟)即时 COMPLETED
+  失败任一步 → 逆序补偿: releaseStock / refund
+```
+
+### 4.2 注册数据流
+```
+用户 → 网关 → Auth.register → 写 User
+  Auth → Points: grant(onboarding) -> 写 PointsBatch + Transaction(GRANT)
+```
+
+### 4.3 取消数据流
+```
+用户 → 网关 → Order.cancelOrder(发货前)
+  Order → Points: refund -> Transaction(REFUND)
+  Order → Product: releaseStock -> 释放预占
+  Order: 状态 CANCELLED
+```
 
 ---
 
-## 无循环依赖验证
+## 5. 共享依赖（common 模块）
+所有后端服务依赖 `common`（JWT 工具、统一响应/错误码、分页、角色枚举、异常处理、内部鉴权过滤器）。`common` 为编译期依赖，不引入运行期服务耦合。
 
-依赖方向：
-- FE-* → API-GATEWAY → BE-* （前端通过网关调用后端，单向）
-- BE-ORDER → BE-PRODUCT, BE-POINTS （兑换依赖产品和积分）
-- BE-PRODUCT → BE-FILE （产品依赖文件）
-- BE-SCHEDULER → DA-* （调度器依赖数据访问）
-- BE-AUTH → DA-USER, DA-POINTS （认证依赖用户和积分数据）
-- BE-CATEGORY ↔ DA-PRODUCT （分类删除时检查产品关联，通过数据层查询，非组件循环依赖）
-- API-GATEWAY → auth-service（JWT 密钥共享，配置级依赖，非运行时循环）
+---
 
-**结论**: 无组件级循环依赖 ✅
+## 6. 并行开发与构建顺序约束
+- **无环依赖**，支持并行：Product 与 Points 无相互依赖，可并行开发。
+- **构建顺序**（受运行期调用约束）：Unit7 基础设施 → Unit2 Auth → Unit6 网关 → (Unit3 Product ∥ Unit4 Points) → Unit5 Order → Unit1 前端。
+- common 模块需最先就绪（被各服务依赖）。

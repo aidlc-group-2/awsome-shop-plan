@@ -1,82 +1,96 @@
-# AWSomeShop 应用设计计划
+# 应用设计计划（Application Design Plan）
 
-## 计划概述
+> 阶段：INCEPTION - 应用设计（Part 1 规划）
+> 时间：2026-06-10T15:47:10+08:00
+> 输入：requirements.md(v1.1)、stories.md、personas.md、execution-plan.md
 
-基于需求文档和用户故事，设计 AWSomeShop 的组件结构、服务层和依赖关系。
-
----
-
-## 第一部分：设计问题
-
-### Question 1
-前后端 API 通信风格偏好是什么？
-
-A) RESTful API — 标准的资源导向 HTTP API
-B) GraphQL — 灵活的查询语言，客户端按需获取数据
-C) RESTful API + WebSocket — REST 为主，WebSocket 用于实时通知
-D) Other (please describe after [Answer]: tag below)
-
-[Answer]: A
-
-### Question 2
-后端架构分层偏好是什么？
-
-A) 经典三层架构 — Controller → Service → Repository
-B) 六边形架构（端口与适配器）— 核心业务逻辑与外部依赖解耦
-C) CQRS — 读写分离架构
-D) Other (please describe after [Answer]: tag below)
-
-[Answer]: 会提供后端架构分层的框架
-
-### Question 3
-积分自动发放的实现方式偏好是什么？
-
-A) 定时任务（Cron Job）— 后端服务内置定时调度器
-B) 消息队列 — 使用消息中间件触发定时任务
-C) 数据库触发器 + 存储过程 — 数据库层面实现
-D) MVP 阶段使用简单的定时任务，后续可升级
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: A
-
-### Question 4
-文件/图片存储方案偏好是什么？
-
-A) 产品图片使用外部 URL 引用（不涉及文件上传）
-B) 本地文件系统存储（Docker 卷挂载）
-C) 对象存储服务（如 MinIO，Docker 部署）
-D) Other (please describe after [Answer]: tag below)
-
-[Answer]: B
+本阶段聚焦**高层组件识别与服务层设计**（不含详细业务逻辑，详细逻辑在 CONSTRUCTION 的功能设计阶段）。请先回答文末问题中的所有 `[Answer]:`。
 
 ---
 
-## 第二部分：设计执行步骤
+## A. 执行清单（Execution Checklist）
 
-以下步骤将在问题回答并批准后执行：
+- [x] A1. 识别各服务的主要组件与职责 → `components.md`
+- [x] A2. 定义组件方法签名（高层，输入/输出）→ `component-methods.md`
+- [x] A3. 定义服务层与编排模式（含 Saga、跨服务调用）→ `services.md`
+- [x] A4. 定义组件/服务依赖矩阵与通信模式、数据流 → `component-dependency.md`
+- [x] A5. 校验设计完整性与一致性（覆盖 FR、与 US 对齐）
 
-- [x] 步骤 1：生成组件定义文档（components.md）
-  - [x] 定义前端组件模块
-  - [x] 定义后端组件模块
-  - [x] 定义数据访问层组件
-  - [x] 描述每个组件的职责和接口
+---
 
-- [x] 步骤 2：生成组件方法文档（component-methods.md）
-  - [x] 定义各组件的方法签名
-  - [x] 描述方法的输入/输出类型
-  - [x] 标注方法的高层用途
+## B. 强制产出物（Mandatory Artifacts）
+- `aidlc-docs/inception/application-design/components.md`
+- `aidlc-docs/inception/application-design/component-methods.md`
+- `aidlc-docs/inception/application-design/services.md`
+- `aidlc-docs/inception/application-design/component-dependency.md`
 
-- [x] 步骤 3：生成服务层文档（services.md）
-  - [x] 定义服务编排模式
-  - [x] 描述服务间的交互流程
-  - [x] 定义跨组件的业务流程编排
+---
 
-- [x] 步骤 4：生成组件依赖文档（component-dependency.md）
-  - [x] 创建依赖关系矩阵
-  - [x] 描述组件间通信模式
-  - [x] 绘制数据流图
+## C. 设计决策问题（请填写所有 [Answer]:）
 
-- [x] 步骤 5：设计验证
-  - [x] 验证设计覆盖所有功能需求
-  - [x] 检查组件职责无重叠
-  - [x] 确认依赖关系无循环
+## 问题 1
+微服务之间的通信方式？
+
+A) 全部同步 REST（HTTP）调用
+B) 同步 REST 为主 + 关键异步事件（如注册→发积分、积分过期）用轻量消息/事件
+C) 事件驱动为主（消息队列）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 2
+兑换流程的跨服务事务（积分扣减 + 库存预占 + 订单创建）采用哪种 Saga 模式？
+
+A) 编排式（Orchestration）：由兑换服务作为协调者，依次调用积分/库存并在失败时触发补偿（推荐，逻辑集中清晰）
+B) 协同式（Choreography）：各服务通过事件相互触发与补偿
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 3
+服务间调用的认证/信任方式？
+
+A) 内部网络信任：服务部署在 docker 内网，网关校验 JWT 后服务间直接调用（MVP 简化，推荐）
+B) 透传 JWT：服务间调用携带用户 JWT，各服务自行校验
+C) 服务间使用独立的内部令牌/密钥（mTLS 或共享密钥）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 4
+新员工注册后的入职奖励积分如何触发？
+
+A) 认证服务在注册成功后同步调用积分服务发放（简单直接）
+B) 认证服务发布"用户已注册"事件，积分服务订阅后发放（解耦，最终一致）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 5
+每个微服务的内部分层结构？
+
+A) 经典三层：Controller（API）→ Service（业务）→ Repository（数据访问），DTO/Entity 分离（Spring Boot 常规，推荐）
+B) 更简化的两层（Controller → Service 直连数据）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 6
+是否需要一个跨服务共享的公共库（如通用 DTO、错误码、JWT 工具、分页封装）？
+
+A) 需要，抽取一个 common 共享模块供各服务复用（推荐，减少重复）
+B) 不需要，各服务自包含，避免耦合
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 7
+周期性积分发放的调度由谁承担？
+
+A) 积分服务内置定时任务（如 Spring Scheduler / Quartz）（MVP 简单，推荐）
+B) 由独立的调度组件/外部触发
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A 
+
+---

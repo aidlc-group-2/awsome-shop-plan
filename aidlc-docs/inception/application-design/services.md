@@ -1,146 +1,95 @@
-# AWSomeShop 服务层定义
+# 服务层与编排设计（Services & Orchestration）
 
-> 后端架构分层将在实现阶段根据用户提供的框架确定。
-> 此处定义服务编排模式和跨组件业务流程。
-
----
-
-## 服务编排模式
-
-采用服务层编排模式，每个业务流程由对应的服务协调多个组件完成。
+> 阶段：INCEPTION - 应用设计
+> 时间：2026-06-10T15:54:10+08:00
+> 决策：全部同步 REST · 编排式 Saga（兑换服务为协调者）· 内网信任 · 网关统一鉴权
 
 ---
 
-## 核心业务流程
+## 1. 服务清单与职责
 
-### 流程 1：用户注册
-
-```
-客户端 → BE-AUTH
-  1. 校验注册信息（用户名唯一性、密码强度）
-  2. 密码加密
-  3. 创建用户记录（DA-USER）
-  4. 初始化积分余额为 0（DA-POINTS）
-  5. 返回注册结果
-```
-
-**参与组件**: BE-AUTH → DA-USER, DA-POINTS
-
-### 流程 2：用户登录
-
-```
-客户端 → BE-AUTH
-  1. 查询用户（DA-USER）
-  2. 校验密码
-  3. 检查账号锁定状态
-  4. 生成 JWT 令牌（含用户ID、角色）
-  5. 返回令牌
-```
-
-**参与组件**: BE-AUTH → DA-USER
-
-### 流程 3：产品兑换（核心流程）
-
-```
-客户端 → BE-ORDER
-  1. 校验用户身份
-  2. 查询产品信息和库存（BE-PRODUCT）
-  3. 查询用户积分余额（BE-POINTS）
-  4. 校验：积分充足 AND 库存充足
-  5. 开启事务：
-     a. 扣除积分（BE-POINTS → DA-POINTS）
-     b. 减少库存（BE-PRODUCT → DA-PRODUCT）
-     c. 创建兑换记录（DA-ORDER）
-  6. 事务提交
-  7. 返回兑换结果
-  
-  异常处理：
-  - 积分不足 → 返回错误，不执行任何操作
-  - 库存不足 → 返回错误，不执行任何操作
-  - 并发冲突 → 事务回滚，提示用户重试
-```
-
-**参与组件**: BE-ORDER → BE-PRODUCT, BE-POINTS, DA-ORDER
-**事务边界**: 积分扣除 + 库存减少 + 订单创建 在同一事务中
-
-### 流程 4：积分自动发放
-
-```
-BE-SCHEDULER（定时触发）
-  1. 读取发放配置（DA-CONFIG）
-  2. 查询所有活跃员工（DA-USER）
-  3. 批量发放积分：
-     对每位员工：
-     a. 增加积分余额（DA-POINTS）
-     b. 创建积分变动记录（DA-POINTS）
-  4. 记录发放结果日志
-```
-
-**参与组件**: BE-SCHEDULER → DA-CONFIG, DA-USER, DA-POINTS
-**触发方式**: Cron 定时任务
-
-### 流程 5：积分手动调整
-
-```
-管理员 → BE-POINTS
-  1. 校验管理员权限
-  2. 查询目标员工当前余额（DA-POINTS）
-  3. 校验：扣除时余额是否充足
-  4. 更新积分余额（DA-POINTS）
-  5. 创建积分变动记录（含操作人、备注）（DA-POINTS）
-  6. 返回调整结果
-```
-
-**参与组件**: BE-POINTS → DA-POINTS
-
-### 流程 6：产品管理
-
-```
-管理员 → BE-PRODUCT
-  创建：校验信息 → 保存产品（DA-PRODUCT）→ 关联分类
-  编辑：校验信息 → 更新产品（DA-PRODUCT）
-  删除：检查关联 → 删除产品（DA-PRODUCT）→ 删除图片（BE-FILE）
-```
-
-**参与组件**: BE-PRODUCT → DA-PRODUCT, BE-FILE
-
-### 流程 7：分类管理
-
-```
-管理员 → BE-CATEGORY
-  创建：校验名称 → 设置父分类 → 保存（DA-CATEGORY）
-  编辑：校验名称 → 更新（DA-CATEGORY）
-  删除：检查子分类 → 检查关联产品 → 删除（DA-CATEGORY）
-```
-
-**参与组件**: BE-CATEGORY → DA-CATEGORY, DA-PRODUCT
+| 服务 | 端口 | Schema | 核心职责 |
+|------|------|--------|----------|
+| Auth Service | 8001 | auth | 注册/登录/JWT/角色/用户管理；注册后同步触发发积分 |
+| Product Service | 8002 | product | 商品与二级分类、图片、库存预占/释放/扣减 |
+| Points Service | 8003 | points | 积分账户、批次(FIFO)、变动流水、规则、发放/扣减/退回、定时发放与过期 |
+| Order Service | 8004 | order | 兑换订单生命周期、Saga 编排、履约（实物发货/虚拟即时） |
+| API Gateway | 8080 | - | 统一入口、JWT 校验、角色鉴权、路由、限流、安全头 |
+| Frontend | 3000 | - | 员工端/管理端 SPA，双语，经 Nginx 反代到网关 |
 
 ---
 
-## 横切关注点
+## 2. 关键编排流程
 
-### 认证与授权（API 网关统一处理）
-- 所有前端请求通过 API 网关统一入口
-- API 网关负责 JWT 令牌校验，业务微服务无需各自实现认证逻辑
-- API 网关负责管理员角色权限校验（/api/admin/* 端点）
-- 公开端点（注册、登录）在网关层配置白名单放行
-- 令牌过期由网关统一拒绝请求
-- 网关校验通过后，将用户信息（userId、role）附加到请求头转发给后端微服务
+### 2.1 员工注册 + 入职奖励（同步）
+```
+前端 → 网关 → Auth.register
+  Auth: 校验企业邮箱域名 + 唯一性 → bcrypt 存储 → 创建用户
+  Auth → Points.grant(onboarding)   [同步 REST]
+  发放成功 → 返回注册成功(含登录态/提示)
+  若发积分失败 → 记录并重试/告警；用户已创建（注册不回滚），积分补偿由重试保证最终发放
+```
+> 说明：注册主事务（建用户）与发积分为同步调用；为避免注册因下游抖动失败，发积分失败采用重试/补偿而非回滚用户。
 
-### 请求路由（API 网关）
-- API 网关根据 URL 前缀将请求路由到对应微服务
-- /api/auth/*, /api/users/* → auth-service
-- /api/products/*, /api/categories/*, /api/files/* → product-service
-- /api/points/* → points-service
-- /api/orders/* → order-service
-- /api/admin/* 按业务模块路由到对应服务
+### 2.2 兑换商品（编排式 Saga，核心）
+协调者：`RedemptionSagaOrchestrator`（Order Service）
 
-### 错误处理
-- 统一错误响应格式：`{ code, message, data }`
-- 业务异常返回 4xx 状态码
-- 系统异常返回 5xx 状态码
-- API 网关认证失败返回 401，权限不足返回 403
+```
+前端 → 网关 → Order.createRedemption
+  步骤1  Order → Points.deduct(userId, amount, orderRef)      [扣减积分]
+  步骤2  Order → Product.reserveStock(productId, qty, orderRef) [悲观锁预占库存]
+  步骤3  Order: 创建订单(SUCCESS)
+         - 实物: 状态 PENDING_SHIPMENT，要求/保存配送信息
+         - 虚拟: FulfillmentService.completeVirtualOrder → COMPLETED（即时履约）
+  返回兑换成功
 
-### 分页
-- 统一分页参数：`page`（页码）、`size`（每页数量）
-- 统一分页响应：`{ content, totalElements, totalPages, currentPage }`
+补偿（任一步失败，按逆序）：
+  步骤2失败 → 补偿步骤1：Points.refund
+  步骤3失败 → 补偿步骤2：Product.releaseStock；补偿步骤1：Points.refund
+```
+**一致性**：编排集中在 Order Service；每步具备对应补偿动作（refund / releaseStock）。库存预占用悲观锁防超兑（NFR-4）。
+
+### 2.3 发货（实物）/ 取消
+```
+发货（管理员）: Order.shipPhysicalOrder
+  → Product.confirmDeduct(reservationId)  [预占转正式扣减]
+  → 状态 SHIPPED → COMPLETED
+
+取消（员工，发货前）: Order.cancelOrder
+  → Points.refund(amount)        [退回积分]
+  → Product.releaseStock(resId)  [释放预占]
+  → 状态 CANCELLED
+  (虚拟商品已即时履约则不可取消)
+```
+
+### 2.4 周期性发放 / 积分过期（积分服务内定时任务）
+```
+PointsExpiryScheduler.runPeriodicGrant()  [按规则周期发放, 创建批次]
+PointsExpiryScheduler.expirePoints()       [到期批次 FIFO 失效, 写 EXPIRE 流水]
+```
+
+---
+
+## 3. 编排模式与原则
+- **编排式 Saga**：兑换服务作为唯一协调者，业务流程集中、便于追踪与补偿。
+- **同步调用 + 补偿**：跨服务一律同步 REST；失败即触发补偿，保证最终一致（NFR-5）。
+- **幂等性**：内部接口（deduct/refund/reserve/release/confirm）以 `orderRef`/`reservationId` 保证幂等，支持重试。
+- **故障与超时**：跨服务调用设置超时与有限重试；超时按失败处理并补偿。
+
+---
+
+## 4. 鉴权与安全编排
+- 所有外部请求经网关：`JwtAuthenticationFilter` 校验 JWT → 注入 `X-User-Id`/`X-User-Role`。
+- 管理端路径经 `RoleAuthorizationFilter` 校验 ADMIN。
+- 服务间内部接口仅在内网暴露，`InternalAuthFilter` 拒绝外部直达。
+- 网关负责限流、安全响应头、CORS。
+
+---
+
+## 5. 与需求/故事的对齐
+- 注册发积分：FR-A6 / FR-P3 / US-01 / US-22
+- 兑换 Saga：FR-O1~O4、FR-O10、BR-5~8 / US-08~10、US-28
+- 取消退回：FR-O7、BR-7 / US-14
+- 发货：FR-O6、AS-1 / US-26
+- 周期发放/过期：FR-P4、FR-P7、BR-2~3 / US-17、US-22
+- 鉴权：FR-G1~G5 / US-02、US-18

@@ -1,116 +1,161 @@
-# AWSomeShop 需求验证问题
+# 需求澄清问题（Requirements Verification Questions）
 
-请回答以下问题，帮助我更好地理解项目需求。
-请在每个问题的 [Answer]: 标签后填写您选择的字母。
+请在每个问题的 `[Answer]:` 后填写字母选项。若提供的选项都不符合，请选择最后一项 `X) 其他`，并在 `[Answer]:` 后补充描述。全部回答完成后，请告知我"完成"。
 
 ---
 
-## Question 1
-该项目的技术栈偏好是什么？
+## 一、技术栈与架构
 
-A) React + Node.js（全栈 JavaScript/TypeScript）
-B) React 前端 + Java/Spring Boot 后端
-C) Vue.js + Python/Django 后端
-D) Next.js 全栈（React + API Routes）
-E) Other (please describe after [Answer]: tag below)
+## 问题 1
+后端微服务采用哪种主要技术栈？（README 仅指定了 MySQL 8.4、Docker、JWT、bcrypt，但未明确后端语言/框架）
 
-[Answer]: 前后端各自都有已经搭建好的技术框架
-
-## Question 2
-数据存储方案偏好是什么？
-
-A) 关系型数据库（PostgreSQL/MySQL）
-B) NoSQL 文档数据库（DynamoDB/MongoDB）
-C) 内存数据库 + 持久化存储组合（Redis + PostgreSQL）
-D) 无服务器数据库（如 Aurora Serverless）
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: MySQL
-
-## Question 3
-员工认证/登录方式是什么？
-
-A) 公司内部 SSO（单点登录）集成
-B) 用户名 + 密码（独立认证系统）
-C) 基于 AWS Cognito 的认证
-D) MVP 阶段暂不实现认证，使用模拟登录
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: B
-
-## Question 4
-"AWSome积分"的初始发放机制是什么？
-
-A) 管理员手动为每位员工设置初始积分
-B) 系统自动按固定额度定期发放（如每月）
-C) 管理员批量导入积分（如通过 CSV 文件）
-D) MVP 阶段每位员工预设固定积分额度
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: B
-
-## Question 5
-产品目录的规模预期是多少？
-
-A) 小型（10-50 个产品）
-B) 中型（50-200 个产品）
-C) 大型（200+ 个产品）
-D) MVP 阶段先上线少量产品（< 10 个），后续扩展
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: C
-
-## Question 6
-兑换流程是否需要物流/配送管理？
-
-A) 需要，包含完整的订单配送跟踪
-B) 仅需要简单的订单状态（已兑换/已完成）
-C) 线下自取，系统只记录兑换信息
-D) MVP 阶段不需要物流，仅记录兑换记录
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: C
-
-## Question 7
-系统的部署环境偏好是什么？
-
-A) AWS 云服务（EC2/ECS/Lambda 等）
-B) 本地 Docker 容器化部署
-C) 无服务器架构（AWS Lambda + API Gateway）
-D) MVP 阶段本地运行，后续迁移到云端
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: B
-
-## Question 8
-MVP 的目标用户规模是多少？
-
-A) 小团队试点（< 50 人）
-B) 部门级别（50-200 人）
-C) 公司级别（200-1000 人）
-D) 大规模（1000+ 人）
-E) Other (please describe after [Answer]: tag below)
-
-[Answer]: D
-
-## Question 9
-是否需要产品分类功能？
-
-A) 需要，支持多级分类（如：电子产品 > 耳机）
-B) 需要，但仅支持单级分类（如：电子产品、办公用品）
-C) 不需要分类，所有产品平铺展示
-D) MVP 阶段不需要，后续迭代添加
-E) Other (please describe after [Answer]: tag below)
+A) Java + Spring Boot（Spring Cloud Gateway）
+B) Python + FastAPI
+C) Node.js + NestJS/Express
+D) Go + Gin/Echo
+X) 其他（请在 [Answer]: 后描述）
 
 [Answer]: A
 
-## Question 10
-管理员界面的需求是什么？
+## 问题 2
+前端 SPA 采用哪种框架？
 
-A) 独立的管理后台页面（与员工端分离）
-B) 在同一应用中通过角色权限区分管理功能
-C) 使用命令行工具或脚本管理
-D) MVP 阶段使用简单的管理页面，后续完善
-E) Other (please describe after [Answer]: tag below)
+A) React（含 TypeScript）
+B) Vue 3（含 TypeScript）
+C) Angular
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A 
+
+## 问题 3
+API 网关（Unit 6）的实现方式？
+
+A) 自研网关服务（与其他微服务同语言/框架实现）
+B) 使用成熟网关中间件（如 Spring Cloud Gateway、Kong、APISIX、Nginx + 自定义鉴权）
+X) 其他（请在 [Answer]: 后描述）
 
 [Answer]: B
+
+---
+
+## 二、用户与认证
+
+## 问题 4
+员工账号如何创建？
+
+A) 员工自助注册（需限制企业邮箱域名）
+B) 仅由管理员/HR 创建账号，员工首次登录
+C) 两者皆可（自助注册 + 管理员创建）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A
+
+## 问题 5
+系统需要支持哪些角色？
+
+A) 两种：普通员工、管理员
+B) 三种：普通员工、管理员、HR（HR 专注积分发放与用户管理）
+C) 与 README 用户画像一致（技术型员工、非技术行政员工、HR 管理员），但权限上仅区分"员工"与"管理员"两类
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: C 
+
+---
+
+## 三、积分规则（Points Service）
+
+## 问题 6
+积分的"自动发放"指什么触发规则？（README 提到"自动发放"和"积分规则配置"）
+
+A) 入职奖励（新员工账号创建时一次性发放）
+B) 周期性发放（如每月定额）
+C) 基于可配置规则（管理员可配置多种发放规则/事件）
+D) 入职奖励 + 周期性发放组合
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: D 
+
+## 问题 7
+积分是否会过期？
+
+A) 不会过期
+B) 会过期（需要有效期规则）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: B 
+
+---
+
+## 四、商品与兑换流程（Product & Order Service）
+
+## 问题 8
+兑换的商品属于哪种类型？这关系到是否需要配送信息。
+
+A) 实物商品，需要填写配送地址并跟踪发货状态
+B) 虚拟商品/卡券，无需配送（线上发放）
+C) 两者都有（实物 + 虚拟混合）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: C 
+
+## 问题 9
+兑换下单后的库存扣减与并发控制策略？（README 提到"悲观锁并发控制"）
+
+A) 下单即扣减库存，使用悲观锁防止超兑
+B) 下单预占库存，发货后正式扣减
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: B 
+
+## 问题 10
+兑换订单是否支持取消/退款（积分退回）？
+
+A) 不支持取消，下单即最终
+B) 发货前员工可取消，积分自动退回
+C) 仅管理员可取消并退回积分
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: B 
+
+## 问题 11
+兑换订单是否需要管理员审批？
+
+A) 不需要审批，库存充足且积分足够即自动成功
+B) 需要管理员审批后才进入发货流程
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A 
+
+---
+
+## 五、规模与非功能性
+
+## 问题 12
+系统的预期规模（用于性能与容量设计）？
+
+A) 小型（< 500 名员工，低并发）
+B) 中型（500 - 5000 名员工）
+C) 大型（> 5000 名员工）
+D) MVP 阶段不需要严格容量目标，按 README 的性能指标（页面 < 3s，API < 500ms）即可
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: C 
+
+## 问题 13
+本阶段（MVP）界面与内容的语言要求？
+
+A) 仅中文
+B) 中英文双语（i18n）
+C) 仅英文
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: B 
+
+## 问题 14
+除上述问题外，是否还有其他必须纳入需求的关键约束或业务规则？
+
+A) 没有，README 与 doc/ 中的资料已覆盖
+B) 有（请在 [Answer]: 后描述具体内容）
+X) 其他（请在 [Answer]: 后描述）
+
+[Answer]: A

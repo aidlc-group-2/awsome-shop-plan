@@ -1,304 +1,178 @@
-# AWSomeShop 执行计划
+# 执行计划（Execution Plan）
 
-## 详细分析摘要
+> 阶段：INCEPTION - 工作流规划
+> 时间：2026-06-10T15:43:34+08:00
+> 输入：requirements.md（v1.1）、stories.md（US-01~28）、personas.md（P1~P3）、README.md
 
-### 变更影响评估
-- **用户界面变更**: 是 — 全新的前端界面（员工端 + 管理端）
-- **结构变更**: 是 — 全新的前后端分离架构
-- **数据模型变更**: 是 — 全新的数据库设计（用户、产品、分类、积分、兑换记录）
-- **API 变更**: 是 — 全新的 RESTful API 设计
-- **NFR 影响**: 是 — 安全认证、Docker 部署、性能考量
+---
 
-### 风险评估
-- **风险级别**: 中等
-- **回滚复杂度**: 低（全新项目，无历史包袱）
-- **测试复杂度**: 中等（多模块集成测试）
+## 1. 详细分析摘要（Detailed Analysis Summary）
 
-## 工作流可视化
+### 1.1 变更影响评估（Change Impact Assessment）
+- **用户可见变更**：是 — 全新员工端 + 管理端 SPA
+- **结构性变更**：是 — 全新微服务架构（6 服务 + 基础设施）
+- **数据模型变更**：是 — 4 个独立 MySQL Schema（认证/商品/积分/兑换）
+- **API 变更**：是 — 全新 REST API 与网关路由
+- **NFR 影响**：是 — 性能、安全、并发、一致性、可访问性、i18n、面向 >5000 员工的容量
+
+### 1.2 风险评估（Risk Assessment）
+- **风险等级**：中-高（Medium-High）
+- **主要风险点**：跨服务事务一致性（Saga 补偿）、库存并发（悲观锁防超兑）、积分 FIFO 过期、网关统一鉴权
+- **回滚复杂度**：中（容器化部署，按服务独立）
+- **测试复杂度**：复杂（单元 + 跨服务集成 + 并发/一致性测试）
+
+### 1.3 工作单元（Units of Work，来自 README + 需求）
+| 单元 | 名称 | 端口 | 性质 |
+|------|------|------|------|
+| Unit 7 | 基础设施（Docker/MySQL/网络） | 3306 | 基础，先行 |
+| Unit 2 | 认证服务 | 8001 | 微服务 |
+| Unit 6 | API 网关 | 8080 | 微服务（中间件） |
+| Unit 3 | 商品服务 | 8002 | 微服务（可与 Unit4 并行） |
+| Unit 4 | 积分服务 | 8003 | 微服务（可与 Unit3 并行） |
+| Unit 5 | 兑换服务 | 8004 | 微服务（依赖 2/3/4） |
+| Unit 1 | 前端 SPA | 3000 | 前端（依赖网关与各服务 API） |
+
+**建议开发顺序**：Unit 7 → Unit 2 → Unit 6 → (Unit 3 ∥ Unit 4) → Unit 5 → Unit 1
+
+---
+
+## 2. 工作流可视化（Workflow Visualization）
+
+### Mermaid 图
 
 ```mermaid
 flowchart TD
     Start(["用户请求"])
-    
-    subgraph INCEPTION["🔵 启动阶段 — ✅ 全部完成"]
-        WD["工作区检测 ✅"]
-        RA["需求分析 ✅"]
-        US["用户故事 ✅"]
-        WP["工作流规划 ✅"]
-        AD["应用设计 ✅"]
-        UG["工作单元生成 ✅"]
+
+    subgraph INCEPTION["INCEPTION 阶段"]
+        WD["工作区检测<br/><b>COMPLETED</b>"]
+        RE["逆向工程<br/><b>SKIPPED</b>"]
+        RA["需求分析<br/><b>COMPLETED</b>"]
+        US["用户故事<br/><b>COMPLETED</b>"]
+        WP["工作流规划<br/><b>IN PROGRESS</b>"]
+        AD["应用设计<br/><b>EXECUTE</b>"]
+        UG["单元生成<br/><b>EXECUTE</b>"]
     end
 
-    subgraph CONSTRUCTION["🟢 构建阶段"]
-
-        subgraph P1["阶段1（先行）: Unit 7 infrastructure ✅"]
-            U7_FD["功能设计 ✅"]
-            U7_NFR["NFR需求 ✅"]
-            U7_NFRD["NFR设计 ✅"]
-            U7_ID["基础设施设计 ✅"]
-            U7_CG["代码生成 ⏭️"]
-            U7_BT["构建测试 ⏭️"]
-        end
-
-        subgraph P2_U2["Unit 2 auth-service"]
-            U2_FD["功能设计 ✅"]
-            U2_NFR["NFR需求 ✅"]
-            U2_NFRD["NFR设计 ✅"]
-            U2_ID["基础设施设计 ✅"]
-            U2_CG["代码生成"]
-            U2_BT["构建测试"]
-        end
-
-        subgraph P2_U3["Unit 3 product-service"]
-            U3_FD["功能设计 ✅"]
-            U3_NFR["NFR需求 ✅"]
-            U3_NFRD["NFR设计 ✅"]
-            U3_ID["基础设施设计 ✅"]
-            U3_CG["代码生成"]
-            U3_BT["构建测试"]
-        end
-
-        subgraph P2_U4["Unit 4 points-service"]
-            U4_FD["功能设计 ✅"]
-            U4_NFR["NFR需求 ✅"]
-            U4_NFRD["NFR设计 ✅"]
-            U4_ID["基础设施设计 ✅"]
-            U4_CG["代码生成"]
-            U4_BT["构建测试"]
-        end
-
-        subgraph P2_U5["Unit 5 order-service"]
-            U5_FD["功能设计 ✅"]
-            U5_NFR["NFR需求 ✅"]
-            U5_NFRD["NFR设计 ✅"]
-            U5_ID["基础设施设计 ✅"]
-            U5_CG["代码生成"]
-            U5_BT["构建测试"]
-        end
-
-        subgraph P2_U6["Unit 6 api-gateway"]
-            U6_FD["功能设计 ✅"]
-            U6_NFR["NFR需求 ✅"]
-            U6_NFRD["NFR设计 ✅"]
-            U6_ID["基础设施设计 ✅"]
-            U6_CG["代码生成"]
-            U6_BT["构建测试"]
-        end
-
-        subgraph P2_U1["Unit 1 frontend"]
-            U1_FD["功能设计 ✅"]
-            U1_NFR["NFR需求"]
-            U1_NFRD["NFR设计"]
-            U1_ID["基础设施设计"]
-            U1_CG["代码生成"]
-            U1_BT["构建测试"]
-        end
-
-        subgraph P3["阶段3: 集成测试"]
-            IT["全链路集成测试"]
-        end
-
+    subgraph CONSTRUCTION["CONSTRUCTION 阶段（按单元循环）"]
+        FD["功能设计<br/><b>EXECUTE</b>"]
+        NFRA["NFR 需求<br/><b>EXECUTE</b>"]
+        NFRD["NFR 设计<br/><b>EXECUTE</b>"]
+        ID["基础设施设计<br/><b>EXECUTE</b>"]
+        CG["代码生成<br/><b>EXECUTE</b>"]
+        BT["构建与测试<br/><b>EXECUTE</b>"]
     end
 
-    Start --> WD --> RA --> US --> WP --> AD --> UG
+    subgraph OPERATIONS["OPERATIONS 阶段"]
+        OPS["运维<br/><b>PLACEHOLDER</b>"]
+    end
 
-    UG --> U7_FD --> U7_NFR --> U7_NFRD --> U7_ID --> U7_CG --> U7_BT
+    Start --> WD
+    WD --> RA
+    RA --> US
+    US --> WP
+    WP --> AD
+    AD --> UG
+    UG --> FD
+    FD --> NFRA
+    NFRA --> NFRD
+    NFRD --> ID
+    ID --> CG
+    CG --> BT
+    BT --> OPS
+    BT --> End(["完成"])
 
-    U7_BT --> U2_FD
-    U7_BT --> U3_FD
-    U7_BT --> U4_FD
-    U7_BT --> U5_FD
-    U7_BT --> U6_FD
-    U7_BT --> U1_FD
+    style WD fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style RA fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style US fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style WP fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style AD fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style UG fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style FD fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style NFRA fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style NFRD fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style ID fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style CG fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style BT fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style RE fill:#BDBDBD,stroke:#424242,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+    style OPS fill:#FFF59D,stroke:#F57F17,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+    style Start fill:#CE93D8,stroke:#6A1B9A,stroke-width:3px,color:#000
+    style End fill:#CE93D8,stroke:#6A1B9A,stroke-width:3px,color:#000
 
-    U2_FD --> U2_NFR --> U2_NFRD --> U2_ID --> U2_CG --> U2_BT
-    U3_FD --> U3_NFR --> U3_NFRD --> U3_ID --> U3_CG --> U3_BT
-    U4_FD --> U4_NFR --> U4_NFRD --> U4_ID --> U4_CG --> U4_BT
-    U5_FD --> U5_NFR --> U5_NFRD --> U5_ID --> U5_CG --> U5_BT
-    U6_FD --> U6_NFR --> U6_NFRD --> U6_ID --> U6_CG --> U6_BT
-    U1_FD --> U1_NFR --> U1_NFRD --> U1_ID --> U1_CG --> U1_BT
-
-    U2_BT --> IT
-    U3_BT --> IT
-    U4_BT --> IT
-    U5_BT --> IT
-    U6_BT --> IT
-    U1_BT --> IT
-
-    IT --> End(["完成"])
-
-    style WD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style RA fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style US fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style WP fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style AD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style UG fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U7_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U7_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U7_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style Start fill:none,stroke:#6A1B9A,stroke-width:2px
-    style End fill:none,stroke:#6A1B9A,stroke-width:2px
-    style INCEPTION fill:none,stroke:#1565C0,stroke-width:2px
-    style CONSTRUCTION fill:none,stroke:#2E7D32,stroke-width:2px
-
-    style U7_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U7_CG fill:none,stroke:#999,stroke-width:1px,stroke-dasharray:5
-    style U7_BT fill:none,stroke:#999,stroke-width:1px,stroke-dasharray:5
-
-    style U2_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U2_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U2_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U2_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U2_CG fill:none,stroke:#333,stroke-width:1px
-    style U2_BT fill:none,stroke:#333,stroke-width:1px
-
-    style U3_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U3_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U3_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U3_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U3_CG fill:none,stroke:#333,stroke-width:1px
-    style U3_BT fill:none,stroke:#333,stroke-width:1px
-
-    style U4_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U4_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U4_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U4_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U4_CG fill:none,stroke:#333,stroke-width:1px
-    style U4_BT fill:none,stroke:#333,stroke-width:1px
-
-    style U5_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U5_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U5_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U5_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U5_CG fill:none,stroke:#333,stroke-width:1px
-    style U5_BT fill:none,stroke:#333,stroke-width:1px
-
-    style U6_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U6_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U6_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U6_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U6_CG fill:none,stroke:#333,stroke-width:1px
-    style U6_BT fill:none,stroke:#333,stroke-width:1px
-
-    style U1_FD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U1_NFR fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U1_NFRD fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U1_ID fill:#4CAF50,stroke:#1B5E20,stroke-width:2px,color:#fff
-    style U1_CG fill:none,stroke:#333,stroke-width:1px
-    style U1_BT fill:none,stroke:#333,stroke-width:1px
-
-    style IT fill:none,stroke:#333,stroke-width:1px
-
-    style P1 fill:none,stroke:#555,stroke-width:1px
-    style P2_U2 fill:none,stroke:#555,stroke-width:1px
-    style P2_U3 fill:none,stroke:#555,stroke-width:1px
-    style P2_U4 fill:none,stroke:#555,stroke-width:1px
-    style P2_U5 fill:none,stroke:#555,stroke-width:1px
-    style P2_U6 fill:none,stroke:#555,stroke-width:1px
-    style P2_U1 fill:none,stroke:#555,stroke-width:1px
-    style P3 fill:none,stroke:#555,stroke-width:1px
+    linkStyle default stroke:#333,stroke-width:2px
 ```
 
-### 文本替代方案
-```
-启动阶段: ✅ 全部完成
-  ✅ 工作区检测 → ✅ 需求分析 → ✅ 用户故事 → ✅ 工作流规划 → ✅ 应用设计 → ✅ 工作单元生成
+### 文本替代（Text Alternative）
 
-构建阶段: ⏳ 进行中
-  阶段1（先行）: Unit 7 (infrastructure) — 功能设计 → NFR需求 → NFR设计 → 基础设施设计 → 代码生成 → 构建测试
-  阶段2（并行）: Unit 2/3/4/5/6 + Unit 1 — 各自 功能设计 → NFR需求 → NFR设计 → 基础设施设计 → 代码生成 → 构建测试
-  阶段3: 全链路集成测试
+```
+INCEPTION 阶段：
+- 工作区检测 .......... 已完成
+- 逆向工程 ............ 已跳过（用户决定按全新开发处理）
+- 需求分析 ............ 已完成
+- 用户故事 ............ 已完成
+- 工作流规划 .......... 进行中
+- 应用设计 ............ 执行
+- 单元生成 ............ 执行
+
+CONSTRUCTION 阶段（对每个工作单元循环执行）：
+- 功能设计 ............ 执行
+- NFR 需求 ............ 执行
+- NFR 设计 ............ 执行
+- 基础设施设计 ........ 执行
+- 代码生成 ............ 执行（始终）
+- 构建与测试 .......... 执行（始终）
+
+OPERATIONS 阶段：
+- 运维 ................ 占位（未来扩展）
 ```
 
 ---
 
-## 阶段执行计划
+## 3. 待执行/跳过阶段（Phases to Execute）
 
-### 🔵 启动阶段 (INCEPTION) — ✅ 全部完成
-- [x] 工作区检测 — 已完成
-- [x] 需求分析 — 已完成
-- [x] 用户故事 — 已完成（25个故事，3个用户画像）
-- [x] 工作流规划 — 已完成
-- [x] 应用设计 — 已完成（组件、方法、服务、依赖关系）
-- [x] 工作单元生成 — 已完成（7个工作单元：前端SPA + 4个微服务 + API网关 + 基础设施）
+### 🔵 INCEPTION 阶段
+- [x] 工作区检测（COMPLETED）
+- [x] 逆向工程（SKIPPED — 用户决定暂不考虑已有代码）
+- [x] 需求分析（COMPLETED — requirements.md v1.1）
+- [x] 用户故事（COMPLETED — 28 故事 / 3 画像）
+- [x] 工作流规划（COMPLETED — 2026-06-10T15:47:10+08:00，用户批准）
+- [x] 应用设计 — **EXECUTE**（COMPLETED 2026-06-10T15:58:36+08:00）
+- [ ] 单元生成 — **EXECUTE**
+  - **理由**：系统需拆解为 7 个工作单元并建立依赖与故事映射，支撑并行开发。
 
-### 🟢 构建阶段 (CONSTRUCTION) — ⏳ 进行中
+### 🟢 CONSTRUCTION 阶段（按单元循环）
+- [ ] 功能设计 — **EXECUTE**
+  - **理由**：每个服务有新数据模型/Schema 与复杂业务逻辑（积分 FIFO、库存预占、Saga）。
+- [ ] NFR 需求 — **EXECUTE**
+  - **理由**：存在性能、安全、并发、容量（>5000 员工）等明确 NFR。
+- [ ] NFR 设计 — **EXECUTE**
+  - **理由**：需将悲观锁、Saga、JWT、i18n、可访问性等 NFR 模式落到设计。
+- [ ] 基础设施设计 — **EXECUTE**
+  - **理由**：Docker Compose 编排、MySQL 多 Schema、网络、卷需明确（Unit 7）。
+- [ ] 代码生成 — **EXECUTE（始终）**
+  - **理由**：需实现各单元代码与测试。
+- [ ] 构建与测试 — **EXECUTE（始终）**
+  - **理由**：需构建、单元/集成/并发一致性测试与验证。
 
-#### 阶段 1（先行）: Unit 7 — infrastructure ✅
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [x] 代码生成 — ⏭️ 跳过（用户选择先完成所有 Unit 设计）
-- [x] 构建和测试 — ⏭️ 跳过（用户选择先完成所有 Unit 设计）
-
-#### 阶段 2（并行）: Unit 2/3/4/5/6 + Unit 1
-
-Unit 2 (auth-service):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-Unit 3 (product-service):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-Unit 4 (points-service):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-Unit 5 (order-service):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-Unit 6 (api-gateway):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-Unit 1 (awsomeshop-frontend):
-- [x] 功能设计
-- [x] NFR需求
-- [x] NFR设计
-- [x] 基础设施设计
-- [ ] 代码生成
-- [ ] 构建和测试
-
-#### 阶段 3: 集成测试
-- [ ] 全链路集成测试
-
-### 🟡 运维阶段 (OPERATIONS)
-- [ ] 运维 — 占位（未来扩展）
+### 🟡 OPERATIONS 阶段
+- [ ] 运维 — **PLACEHOLDER**（未来部署与监控扩展）
 
 ---
 
-## 成功标准
-- **主要目标**: 交付可运行的 AWSomeShop MVP，验证员工积分兑换商业模式
-- **关键交付物**:
-  - 前后端分离的 Web 应用
-  - MySQL 数据库及初始化脚本
-  - Docker 容器化部署配置
-  - API 文档
-  - 单元测试
-- **质量门禁**:
-  - 所有 Must Have 用户故事的验收标准通过
-  - 安全认证机制正常工作
-  - Docker 一键启动成功
+## 4. 跳过的阶段汇总（Skipped）
+- 逆向工程：已跳过（用户决定暂不考虑已有 auth-service/gateway-service 代码）。
+
+---
+
+## 5. 成功标准（Success Criteria）
+- **主要目标**：交付可运行的 AWSomeShop MVP（6 服务 + 前端 + 基础设施），员工与管理员核心闭环可用。
+- **关键交付物**：各单元设计文档、代码与测试、docker-compose 一键启动、API 文档。
+- **质量门槛**：
+  - 满足 NFR-1 性能指标（页面 < 3s、API < 500ms、网关 P95 ≤ 50ms）
+  - 并发不超兑、跨服务一致性（Saga 补偿）经测试验证
+  - 单元测试 + 跨服务集成测试通过
+  - WCAG 2.1 AA 可访问性、中英文双语
+
+## 6. 预估规模（Estimated Scale）
+- **执行阶段总数**：INCEPTION 剩余 2（应用设计、单元生成）+ CONSTRUCTION 每单元 4 设计阶段 + 代码生成，跨 7 个工作单元，最后统一构建与测试。
+- **构建顺序**：Unit 7 → Unit 2 → Unit 6 → (Unit 3 ∥ Unit 4) → Unit 5 → Unit 1

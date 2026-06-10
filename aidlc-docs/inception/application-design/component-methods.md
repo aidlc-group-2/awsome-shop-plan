@@ -1,125 +1,132 @@
-# AWSomeShop 组件方法定义
+# 组件方法签名（Component Methods）
 
-> 注：此处定义方法签名和高层用途。详细业务规则将在构建阶段的功能设计中定义。
-> 后端架构分层将在实现阶段根据用户提供的框架确定。
-
----
-
-## 后端组件方法
-
-### BE-AUTH: 认证组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| register | RegisterRequest(username, password, name, employeeId) | UserResponse | 注册新用户 |
-| login | LoginRequest(username, password) | TokenResponse(token, role) | 用户登录，返回JWT |
-| logout | token: String | void | 用户退出，令牌失效 |
-| validateToken | token: String | UserInfo | 校验令牌有效性 |
-
-### BE-USER: 用户组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| getUserById | userId: Long | UserResponse | 获取用户信息 |
-| getUserByUsername | username: String | UserResponse | 按用户名查询 |
-| listUsers | page: Int, size: Int, keyword: String? | PageResponse\<UserResponse\> | 分页查询用户列表 |
-| updateUser | userId: Long, UpdateUserRequest | UserResponse | 更新用户信息 |
-
-### BE-PRODUCT: 产品组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| createProduct | CreateProductRequest | ProductResponse | 创建产品 |
-| updateProduct | productId: Long, UpdateProductRequest | ProductResponse | 更新产品 |
-| deleteProduct | productId: Long | void | 删除产品 |
-| getProductById | productId: Long | ProductResponse | 获取产品详情 |
-| listProducts | page, size, categoryId?, keyword? | PageResponse\<ProductResponse\> | 分页查询产品 |
-| updateStock | productId: Long, quantity: Int | void | 更新库存 |
-
-### BE-CATEGORY: 分类组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| createCategory | CreateCategoryRequest(name, parentId?) | CategoryResponse | 创建分类 |
-| updateCategory | categoryId: Long, UpdateCategoryRequest | CategoryResponse | 更新分类 |
-| deleteCategory | categoryId: Long | void | 删除分类 |
-| getCategoryTree | — | List\<CategoryTreeNode\> | 获取完整分类树 |
-| getCategoryById | categoryId: Long | CategoryResponse | 获取分类详情 |
-
-### BE-POINTS: 积分组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| getBalance | userId: Long | PointBalanceResponse | 查询积分余额 |
-| adjustPoints | AdjustPointsRequest(userId, amount, reason, operatorId) | PointTransactionResponse | 手动调整积分 |
-| deductPoints | userId: Long, amount: Int, orderId: Long | PointTransactionResponse | 兑换扣除积分 |
-| rollbackDeduction | transactionId: Long | void | 回滚积分扣除 |
-| getTransactionHistory | userId: Long, page, size | PageResponse\<PointTransactionResponse\> | 查询积分变动历史 |
-| listAllBalances | page, size, keyword? | PageResponse\<UserPointResponse\> | 管理员查看所有余额 |
-
-### BE-ORDER: 兑换组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| createOrder | CreateOrderRequest(userId, productId) | OrderResponse | 创建兑换订单 |
-| getOrderById | orderId: Long | OrderResponse | 获取兑换详情 |
-| listUserOrders | userId: Long, page, size | PageResponse\<OrderResponse\> | 查询用户兑换历史 |
-| listAllOrders | page, size, keyword?, dateRange? | PageResponse\<OrderResponse\> | 管理员查看所有兑换 |
-| updateOrderStatus | orderId: Long, status: OrderStatus | OrderResponse | 更新兑换状态 |
-
-### BE-FILE: 文件组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| uploadFile | MultipartFile | FileResponse(url, filename) | 上传文件 |
-| getFile | filename: String | FileResource | 获取文件 |
-| deleteFile | filename: String | void | 删除文件 |
-
-### BE-SCHEDULER: 调度组件
-
-| 方法 | 输入 | 输出 | 用途 |
-|------|------|------|------|
-| executePointDistribution | — | DistributionResult | 执行积分自动发放 |
-| getDistributionConfig | — | DistributionConfigResponse | 获取发放配置 |
-| updateDistributionConfig | UpdateConfigRequest(amount, period) | DistributionConfigResponse | 更新发放配置 |
+> 阶段：INCEPTION - 应用设计
+> 时间：2026-06-10T15:54:10+08:00
+> 说明：以下为**高层方法签名**（输入/输出/用途），详细业务规则在 CONSTRUCTION 功能设计阶段细化。签名以 Java/Spring 风格表达，仅作设计参考。
 
 ---
 
-## API 端点汇总
+## 1. 认证服务（Auth Service）
 
-### 公开端点（无需认证）
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | /api/auth/register | 用户注册 |
-| POST | /api/auth/login | 用户登录 |
+### AuthService
+- `AuthResponse register(RegisterRequest req)` — 校验企业邮箱域名、唯一性，bcrypt 加密存储，创建用户；随后同步触发入职奖励发放。
+- `AuthResponse login(LoginRequest req)` — 校验凭据，签发 JWT（含 userId、role）。
+- `void logout(String token)` — 登出处理（前端清除令牌为主）。
+- `TokenValidationResult validateToken(String token)` — 解析并校验 JWT，返回用户身份与角色（供网关/内部）。
 
-### 员工端点（需要认证）
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | /api/auth/logout | 退出登录 |
-| GET | /api/products | 产品列表（分页、搜索、分类筛选） |
-| GET | /api/products/{id} | 产品详情 |
-| GET | /api/categories/tree | 分类树 |
-| GET | /api/points/balance | 我的积分余额 |
-| GET | /api/points/transactions | 我的积分历史 |
-| POST | /api/orders | 创建兑换订单 |
-| GET | /api/orders | 我的兑换历史 |
-| GET | /api/orders/{id} | 兑换详情 |
+### UserService
+- `PageResponse<UserDTO> listUsers(PageRequest page, String keyword)` — 管理员分页查询用户。
+- `UserDTO getUser(Long userId)` — 查询用户详情。
+- `void changeRole(Long userId, RoleEnum role)` — 变更用户角色。
 
-### 管理员端点（需要管理员角色）
-| 方法 | 路径 | 描述 |
+### PointsClient（出站）
+- `void grantOnboardingBonus(Long userId)` — 同步调用积分服务发放入职奖励（注册成功后）。
+
+---
+
+## 2. 商品服务（Product Service）
+
+### ProductService
+- `PageResponse<ProductDTO> listProducts(PageRequest page, Long categoryId, String keyword)` — 浏览/搜索/按分类。
+- `ProductDTO getProduct(Long productId)` — 商品详情。
+- `ProductDTO createProduct(ProductCreateRequest req)` / `updateProduct(Long id, ProductUpdateRequest req)` — 创建/编辑（管理员）。
+- `void changeStatus(Long productId, ProductStatus status)` — 上下架。
+- `void deleteProduct(Long productId)` — 删除（管理员）。
+
+### CategoryService
+- `List<CategoryDTO> getCategoryTree()` — 返回两级分类树。
+- `CategoryDTO createCategory(CategoryRequest req)` / `updateCategory(...)` / `void deleteCategory(Long id)` — 分类管理（删除含占用校验）。
+
+### StockService（含内部接口）
+- `int getAvailableStock(Long productId)` — 查询可用库存。
+- `ReservationResult reserveStock(Long productId, int qty, String orderRef)` — **悲观锁**预占库存，返回预占凭据。
+- `void releaseStock(String reservationId)` — 释放预占（取消/补偿）。
+- `void confirmDeduct(String reservationId)` — 发货时正式扣减。
+- `void adjustStock(Long productId, int newQty)` — 管理员调整库存。
+
+### ImageStorageComponent
+- `String uploadImage(Long productId, MultipartFile file)` — 保存到本地卷并返回访问 URL。
+
+---
+
+## 3. 积分服务（Points Service）
+
+### PointsAccountService
+- `long getBalance(Long userId)` — 当前可用余额（汇总未过期批次）。
+- `List<PointsBatch> getActiveBatchesFifo(Long userId)` — 按 FIFO 顺序返回有效批次（供扣减）。
+
+### PointsGrantService（含内部接口）
+- `void grant(Long userId, long amount, GrantType type, String reason)` — 发放（入职/周期/手动），创建批次（含到期时间）与流水。
+- `DeductResult deduct(Long userId, long amount, String orderRef)` — 按 FIFO 扣减，写流水；余额不足抛业务异常。
+- `void refund(Long userId, long amount, String orderRef)` — 兑换取消时退回，写流水。
+- `void adjust(Long userId, long delta, String reason, Long operatorId)` — 管理员手动增减。
+
+### PointsTransactionService
+- `PageResponse<TransactionDTO> listTransactions(Long userId, PageRequest page)` — 查询某用户变动记录。
+
+### PointsRuleService
+- `PointsRuleDTO getRules()` / `void updateRules(PointsRuleRequest req)` — 配置入职奖励额度、周期发放额度/周期、积分有效期。
+
+### PointsExpiryScheduler
+- `void runPeriodicGrant()` — 定时：按规则周期性发放。
+- `void expirePoints()` — 定时：将到期批次按 FIFO 失效，写 EXPIRE 流水。
+
+---
+
+## 4. 兑换服务（Order Service）
+
+### OrderService
+- `OrderDTO createRedemption(CreateOrderRequest req, Long userId)` — 入口：委托 Saga 协调者执行兑换。
+- `OrderDTO getOrder(Long orderId, Long userId)` — 订单详情。
+- `PageResponse<OrderDTO> listMyOrders(Long userId, PageRequest page)` — 个人兑换历史。
+- `void cancelOrder(Long orderId, Long userId)` — 发货前取消（触发退回 + 释放预占）。
+- `PageResponse<OrderDTO> listAllOrders(OrderQuery query, PageRequest page)` — 管理员兑换记录管理。
+
+### RedemptionSagaOrchestrator
+- `OrderDTO execute(CreateOrderRequest req, Long userId)` — 编排：1) 积分扣减 → 2) 库存预占 → 3) 创建订单；任一失败按逆序补偿（释放预占、退回积分）。
+- `void compensate(SagaContext ctx)` — 执行补偿动作。
+
+### FulfillmentService
+- `void shipPhysicalOrder(Long orderId, ShippingUpdateRequest req)` — 实物发货：正式扣减库存、状态推进。
+- `void completeVirtualOrder(Long orderId)` — 虚拟商品即时履约完成。
+
+### PointsClient / ProductClient（出站）
+- `DeductResult deductPoints(Long userId, long amount, String orderRef)` / `void refundPoints(...)`
+- `ReservationResult reserveStock(...)` / `void releaseStock(...)` / `void confirmDeduct(...)`
+
+---
+
+## 5. API 网关（Gateway）
+
+### JwtAuthenticationFilter
+- `Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain)` — 校验 JWT，失败返回 401，成功注入 `X-User-Id`/`X-User-Role` 头。
+
+### RoleAuthorizationFilter
+- `Mono<Void> filter(...)` — 对 `/admin/**` 等管理端路径校验 role=ADMIN，否则 403。
+
+---
+
+## 6. 前端（Frontend，关键服务方法）
+
+### ApiClient
+- `get/post/put/delete<T>(path, payload?)` — 统一请求，自动附加 JWT、处理 401/错误。
+
+### AuthService（前端）
+- `login(credentials)` / `register(form)` / `logout()` / `getCurrentUser()`
+
+### 各模块 hooks/services
+- `useProducts(query)` / `useProduct(id)` / `useRedeem(productId, shippingInfo?)` / `useOrders()` / `usePointsBalance()` / `usePointsTransactions()`
+- 管理端：`useAdminProducts()` / `useCategories()` / `usePointsRules()` / `useAdjustPoints()` / `useOrderManagement()` / `useUsers()`
+
+---
+
+## 7. 跨服务接口约定（内部 REST，内网信任）
+
+| 调用方 → 被调方 | 端点（示意） | 用途 |
 |------|------|------|
-| POST | /api/admin/products | 创建产品 |
-| PUT | /api/admin/products/{id} | 更新产品 |
-| DELETE | /api/admin/products/{id} | 删除产品 |
-| POST | /api/admin/categories | 创建分类 |
-| PUT | /api/admin/categories/{id} | 更新分类 |
-| DELETE | /api/admin/categories/{id} | 删除分类 |
-| GET | /api/admin/users | 用户列表 |
-| GET | /api/admin/points/balances | 所有员工积分 |
-| POST | /api/admin/points/adjust | 调整积分 |
-| GET | /api/admin/points/config | 获取发放配置 |
-| PUT | /api/admin/points/config | 更新发放配置 |
-| GET | /api/admin/orders | 所有兑换记录 |
-| PUT | /api/admin/orders/{id}/status | 更新兑换状态 |
-| POST | /api/files/upload | 上传图片 |
+| Auth → Points | `POST /internal/points/grant` | 注册发放入职奖励 |
+| Order → Points | `POST /internal/points/deduct` / `/refund` | 兑换扣减 / 取消退回 |
+| Order → Product | `POST /internal/stock/reserve` / `/release` / `/confirm` | 库存预占/释放/扣减 |
+| Gateway → Auth | `POST /internal/auth/validate` | 令牌校验（或网关本地公钥校验） |
+
+> 内部接口受 `InternalAuthFilter` 保护，仅接受来自内网/网关的调用。
