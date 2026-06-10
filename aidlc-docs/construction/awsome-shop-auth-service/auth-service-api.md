@@ -73,7 +73,7 @@
 
 ## 2. Protected 接口（需有效 JWT；管理端）
 
-> ⚠️ 设计定位为**管理员（ADMIN）**操作，但服务端当前未做角色校验，依赖网关 `RoleAuthorizationFilter`（Unit6 待补）。
+> ⚠️ 设计定位为**管理员（ADMIN）**操作，服务端当前未做角色校验，由网关 `RoleAuthorizationFilter` 统一鉴权（Unit6 已实现；这两个路径已纳入网关 `gateway.security.admin-paths`）。
 
 ### 2.1 用户详情 — `POST /api/v1/auth/user/detail`
 ```json
@@ -117,7 +117,8 @@
 | role | string | 有效时返回；网关据此注入 `X-User-Role` |
 | message | string | 失败原因（无效/过期/已登出） |
 
-> 网关对接提示：当前网关实现使用 `operatorId`/`X-Operator-Id` 且不含 role，需对齐为本契约的 `userId` + `role` 与 `X-User-Id`/`X-User-Role`（见 gap 分析 X2/X3）。
+> 网关对接状态：✅ 已对齐。Unit6 网关已采用本契约的 `userId` + `role`，并据此注入
+> `X-User-Id` / `X-User-Role`（详见 `construction/awsome-shop-gateway-service/gateway-service-api.md`）。
 
 ---
 
