@@ -170,3 +170,33 @@
 **上下文**: INCEPTION - 单元生成 Part 2（等待审批）
 
 ---
+
+## CONSTRUCTION - Unit 7 基础设施设计启动
+**Timestamp**: 2026-06-10T00:20:00Z
+**User Input**: "我是Unit 7"
+**AI Response**: "认领 Unit 7（基础设施/部署）。评估：跳过功能设计/NFR需求/NFR设计（无业务逻辑、技术栈已锁定），直接执行基础设施设计。已创建 infrastructure-infrastructure-design-plan.md，含 8 个 Unit-7 特有的关键决策问题，等待用户作答。已读取现有 infra/ 资产（Staging EC2 + SSM 授权 + user-data 引导脚本）。"
+**Context**: CONSTRUCTION - Infrastructure Design (Unit 7)，等待用户回答设计问题
+
+## CONSTRUCTION - Unit 7 基础设施设计完成
+**Timestamp**: 2026-06-10T00:30:00Z
+**User Input**: "走乙"（审核答案后，Q5 由 A 调整为 C：建表交各服务自动迁移，Unit 7 解耦交付）
+**AI Response**: "确认方案乙。更新计划 Q5=C，生成 infrastructure-design.md 与 deployment-architecture.md（含编排拓扑、MySQL 4 schema 建库+账号、网络、卷、Nginx 反代、.env 模板、本地与 EC2 双运行位置、交接契约）。进入审批关卡，等待用户批准后做代码生成。"
+**Context**: CONSTRUCTION - Infrastructure Design (Unit 7) 完成，等待审批
+
+## CONSTRUCTION - Unit 7 代码生成计划（Part 1）
+**Timestamp**: 2026-06-10T00:35:00Z
+**User Input**: "批准"（批准基础设施设计，进入代码生成）
+**AI Response**: "基础设施设计已批准。创建代码生成计划 infrastructure-code-generation-plan.md（7 步：项目结构、docker-compose、MySQL init SQL、nginx.conf、.env.example、README、文档摘要）。代码落地 <工作区根>/awsome-shop-deploy/。等待用户批准计划后执行 Part 2 生成。"
+**Context**: CONSTRUCTION - Code Generation Part 1 (Unit 7)，等待计划审批
+
+## CONSTRUCTION - Unit 7 代码生成完成（Part 2）
+**Timestamp**: 2026-06-10T00:50:00Z
+**User Input**: "批准"（批准代码生成计划）；后续 "启动了orbstack"（Docker 就绪后执行验证）
+**AI Response**: "执行 Part 2，生成 awsome-shop-deploy/ 全部工件（docker-compose.yml / mysql/init/01-create-schemas.sql / nginx/nginx.conf / .env.example / .gitignore / README.md）+ code-summary.md。修复 nginx 上游解析（改为变量 + Docker DNS，避免网关未就绪时启动失败）。实测验证：compose config 通过、nginx -t 通过、MySQL 启动健康、4 schema + 共享账号创建成功、应用账号登录成功、down -v 清理。等待用户审批。"
+**Context**: CONSTRUCTION - Code Generation Part 2 (Unit 7) 完成，等待审批
+
+## CONSTRUCTION - Unit 7 代码评审与修复
+**Timestamp**: 2026-06-10T01:10:00Z
+**User Input**: "用你的superpowers skills帮我review一下..." → 选择修复 #1/#2/#3/#4，标注 #5/#6
+**AI Response**: "使用 requesting-code-review skill 派发独立评审子代理。按用户决定落地修复：#4 init 改 .sh 引用 $MYSQL_USER（实测改名后授权正确跟随）；#1 nginx 加 frontend service_completed_successfully 依赖 + README 写死镜像契约；#2 文档补 frontend-dist 卷与导出流程；#3 文档如实改为 service_started + 标注健康检查为 MVP 简化；#5/#6 在设计文档与 code-summary 标注为已批准取舍。复测：compose config / nginx -t / MySQL 4 schema 授权（默认与改名用户）/ down -v 全部通过。"
+**Context**: CONSTRUCTION - Unit 7 代码评审修复完成
