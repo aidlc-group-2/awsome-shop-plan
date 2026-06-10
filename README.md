@@ -29,17 +29,19 @@ Auth  Product Points Order  (微服务)
 
 ## 工作单元
 
-| 单元 | 名称 | 端口 | 说明 |
+| 单元 | 项目名称 | 端口 | 说明 |
 |------|------|------|------|
-| Unit 1 | 目前无 | 3000 | SPA 前端应用（员工端 + 管理端） |
-| Unit 2 | 目前无 | 8001 | 认证服务（注册/登录/JWT/角色管理） |
-| Unit 3 | 目前无 | 8002 | 商品服务（商品 CRUD/分类管理/文件上传） |
-| Unit 4 | 目前无 | 8003 | 积分服务（余额管理/自动发放/手动调整） |
-| Unit 5 | 目前无 | 8004 | 兑换服务（下单/状态管理/跨服务调用） |
-| Unit 6 | 目前无 | 8080 | API 网关（认证校验/路由转发/权限控制） |
-| Unit 7 | 目前无 | 3306 | 基础设施（Docker Compose/MySQL/网络） |
+| Unit 1 | awsome-shop-android/awsome-shop-frontend | 3000 | SPA 前端应用（员工端 + 管理端） |
+| Unit 2 | awsome-shop-auth-service | 8001 | 认证服务（注册/登录/JWT/角色管理） |
+| Unit 3 | awsome-shop-product-service | 8002 | 商品服务（商品 CRUD/分类管理/文件上传） |
+| Unit 4 | awsome-shop-points-service | 8003 | 积分服务（余额管理/自动发放/手动调整） |
+| Unit 5 | awsome-shop-order-service | 8004 | 兑换服务（下单/状态管理/跨服务调用） |
+| Unit 6 | awsome-shop-gateway-service | 8080 | API 网关（认证校验/路由转发/权限控制） |
+| Unit 7 | awsome-shop-deploy | 3306 | 基础设施（Docker Compose/MySQL/网络） |
 
 **开发顺序**：Unit 7 → Unit 2 → Unit 6 → Unit 3 + Unit 4（可并行） → Unit 5 → Unit 1
+
+> 这些项目名称与本目录位于同一目录层级
 
 ## 核心功能
 
